@@ -1,5 +1,5 @@
 // Supabase project settings. Paste your Project URL and anon/public key here.
 window.SOTSUTAN_CONFIG = {
-  supabaseUrl: "YOUR_SUPABASE_PROJECT_URL",
-  supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY"
+  supabaseUrl: "https://fovkgumqpervorqbklhu.supabase.co",
+  supabaseAnonKey: "sb_publishable_mToze_aUP9807aplj7VAqw_h85CcXA9"
 };
