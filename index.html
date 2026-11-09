@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#205b4b"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg">
+<title>卒単Checker</title>
+<style>
+:root{--green:#205b4b;--mint:#e8f3ee;--ink:#20302b;--muted:#687771;--line:#dce6e1;--bg:#f5f8f6;--white:#fff;--blue:#386fa8;--amber:#a86d19}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:var(--green);color:white;padding:22px max(18px,calc((100% - 980px)/2));}
+header .sub{opacity:.8;font-size:12px;letter-spacing:.12em}h1{margin:4px 0;font-size:26px}
+main{max-width:980px;margin:22px auto;padding:0 16px 48px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button,.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--green);color:white;font-weight:650;cursor:pointer}
+button.secondary{background:#e7eeea;color:var(--ink)}button.danger{background:#fff0ee;color:#a13e32}
+.tab{background:white;color:var(--muted);border:1px solid var(--line)}.tab.active{background:var(--green);color:white}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #173d2d08}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{background:#f7faf8;border:1px solid var(--line);border-radius:13px;padding:14px}.stat small{color:var(--muted);display:block}.stat strong{font-size:25px;display:block;margin-top:5px}.stat em{font-size:12px;font-style:normal;color:var(--muted)}
+h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:18px 0 10px}
+.bar{height:10px;background:#e8eeea;border-radius:20px;overflow:hidden;margin:8px 0 4px}.bar span{display:block;height:100%;background:#398b6c;border-radius:20px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.muted{color:var(--muted);font-size:13px}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:5px}input,select{width:100%;padding:11px;border:1px solid #ccd9d2;border-radius:9px;background:white;color:var(--ink);font:inherit}
+.formgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;align-items:end}.formgrid.settings{grid-template-columns:repeat(3,1fr)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}th{font-size:12px;color:var(--muted);font-weight:600}td:last-child{text-align:right}
+.pill{font-size:12px;border-radius:20px;padding:4px 8px;background:#edf2ef;white-space:nowrap}.done{background:#e3f4eb;color:#216a48}.taking{background:#e8f0fb;color:#315e91}
+.empty{text-align:center;color:var(--muted);padding:28px 8px}.hidden{display:none!important}
+.yearrow{display:grid;grid-template-columns:1fr 110px 110px 80px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.notice{background:#fff8e9;border:1px solid #f0dfb8;border-radius:10px;padding:11px;font-size:13px;color:#76521b;margin-top:14px}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,1fr)}.formgrid,.formgrid.settings{grid-template-columns:1fr 1fr}.formgrid .wide{grid-column:1/-1}.yearrow{grid-template-columns:1fr 75px 75px 55px;gap:5px;font-size:13px}table{font-size:12px}th,td{padding:9px 4px}.panel{padding:14px}}
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/config.js"></script></head>
+<body>
+<header><div class="sub">CREDIT MANAGEMENT</div><h1>🎓 卒単Checker</h1><div style="opacity:.85;font-size:13px">卒業までの単位を、見える化。</div></header>
+<main>
+<div class="panel" id="authPanel">
+  <h2>クラウド同期にログイン</h2>
+  <p class="muted">アカウントを作成すると、iPhoneとPCで同じ単位データを利用できます。</p>
+  <div class="formgrid" style="grid-template-columns:2fr 2fr 1fr">
+    <div><label>メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
+    <div><label>パスワード</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上"></div>
+    <div><label>&nbsp;</label><button id="signIn" style="width:100%">ログイン</button></div>
+  </div>
+  <div class="actions"><button class="secondary" id="signUp">新規アカウント作成</button><button class="secondary" id="signOut" style="display:none">ログアウト</button><span class="muted" id="authStatus">接続設定が必要です。</span></div>
+</div>
+<div class="notice" id="setupNotice">初回利用前にREADMEの手順でSupabaseを設定してください。</div>
+<nav class="tabs">
+<button class="tab active" data-tab="home">ホーム</button><button class="tab" data-tab="subjects">科目一覧</button><button class="tab" data-tab="years">年度目標</button><button class="tab" data-tab="settings">設定・データ</button>
+</nav>
+<section id="home">
+<div class="panel"><div class="row"><h2>卒業単位の進捗</h2><span class="muted" id="overallPct">0%</span></div>
+<div class="grid">
+<div class="stat"><small>卒業必要単位</small><strong id="req">124</strong><em>単位</em></div>
+<div class="stat"><small>取得済み</small><strong id="earned">0</strong><em>単位</em></div>
+<div class="stat"><small>履修中</small><strong id="taking">0</strong><em>単位</em></div>
+<div class="stat"><small>卒業まで残り</small><strong id="remaining">124</strong><em>単位</em></div>
+</div><div class="bar"><span id="overallBar" style="width:0%"></span></div><div class="muted" id="overallText">取得済み 0 / 124 単位</div></div>
+<div class="panel"><div class="row"><h2>今年の目標</h2><span class="muted" id="yearLabel"></span></div>
+<div class="grid" style="grid-template-columns:repeat(2,1fr)">
+<div class="stat"><small>今年の目標</small><strong id="goal">0</strong><em>単位</em></div><div class="stat"><small>今年の取得実績</small><strong id="yearEarned">0</strong><em>単位</em></div>
+</div><div class="bar"><span id="yearBar" style="width:0%;background:#477db4"></span></div><div class="muted" id="yearText">目標まであと 0 単位</div></div>
+<div class="panel"><h2>科目区分別（取得済み）</h2><div id="categorySummary" class="muted">科目を登録すると集計されます。</div></div>
+</section>
+<section id="subjects" class="hidden">
+<div class="panel"><h2 id="formTitle">科目を登録</h2><form id="subjectForm"><input type="hidden" id="editId">
+<div class="formgrid">
+<div class="wide"><label>科目名</label><input id="name" required placeholder="例：心理学概論"></div>
+<div><label>単位数</label><input id="credits" type="number" min="0.5" step="0.5" required placeholder="2"></div>
+<div><label>科目区分</label><select id="category"><option>必修</option><option>選択必修</option><option selected>選択</option><option>その他</option></select></div>
+<div><label>取得状況</label><select id="status"><option value="未履修">未履修</option><option value="履修中">履修中</option><option value="取得済">取得済</option></select></div>
+<div><label>取得年度</label><input id="year" type="number" min="2000" max="2100" placeholder="取得済の場合"></div>
+</div><div class="actions"><button type="submit" id="saveBtn">科目を追加</button><button type="button" class="secondary" id="cancelEdit">入力をクリア</button></div></form></div>
+<div class="panel"><div class="row"><h2>登録科目</h2><span class="muted" id="subjectCount">0科目</span></div>
+<div style="overflow-x:auto"><table><thead><tr><th>科目名</th><th>単位</th><th>区分</th><th>状況</th><th>取得年度</th><th></th></tr></thead><tbody id="subjectRows"></tbody></table></div><div id="noSubjects" class="empty">まだ科目がありません。上のフォームから登録できます。</div></div>
+</section>
+<section id="years" class="hidden">
+<div class="panel"><h2>年度ごとの目標</h2><div class="formgrid settings"><div><label>年度</label><input id="goalYear" type="number" min="2000" max="2100"></div><div><label>目標単位数</label><input id="goalCredits" type="number" min="0" step="0.5" placeholder="30"></div><div><label>&nbsp;</label><button id="addGoal" style="width:100%">目標を登録</button></div></div><div id="yearList" style="margin-top:16px"></div></div>
+</section>
+<section id="settings" class="hidden">
+<div class="panel"><h2>卒業要件</h2><div class="formgrid settings"><div><label>卒業必要単位数</label><input id="requiredCredits" type="number" min="0" step="0.5"></div><div><label>集計対象年度（今年）</label><input id="currentYear" type="number" min="2000" max="2100"></div><div><label>&nbsp;</label><button id="saveSettings" style="width:100%">設定を保存</button></div></div><div class="notice">科目区分別の必要単位数は、現段階では参考集計です。卒業要件の判定は総単位数で行います。</div></div>
+<div class="panel"><h2>データのバックアップ</h2><p class="muted">データはこのブラウザ内に保存されます。機種変更・別端末で使う場合は、バックアップを保存して読み込んでください。</p><div class="actions"><button id="export">バックアップを書き出す</button><label class="btn secondary" style="display:inline-flex;align-items:center;cursor:pointer">バックアップを読み込む<input id="import" type="file" accept="application/json" hidden></label><button class="danger" id="reset">全データを初期化</button></div></div>
+</section>
+<footer class="muted" style="text-align:center;padding:14px">卒単Checker · データは端末内に保存</footer>
+</main>
+<script>
+const current=new Date().getFullYear();
+function blank(){return {required:124,currentYear:current,subjects:[],goals:{}}}
+let data=blank(), supabaseClient=null, activeUser=null, saveTimer=null;
+function save(){render(); if(activeUser && supabaseClient){clearTimeout(saveTimer);saveTimer=setTimeout(saveCloud,500)}}
+async function saveCloud(){
+  const {error}=await supabaseClient.from('user_data').upsert({user_id:activeUser.id, data, updated_at:new Date().toISOString()});
+  if(error){$('authStatus').textContent='同期エラー：'+error.message;return}
+  $('authStatus').textContent='クラウド同期済み';
+}
+async function loadCloud(){
+  const {data:row,error}=await supabaseClient.from('user_data').select('data').eq('user_id',activeUser.id).maybeSingle();
+  if(error){$('authStatus').textContent='読み込みエラー：'+error.message;return}
+  data=row?.data ? {...blank(),...row.data} : blank();
+  if(!row) await saveCloud();
+  render(); $('authStatus').textContent='クラウド同期済み';
+}
+function setAuthUI(){
+ $('authPanel').style.display='block';
+ $('signOut').style.display=activeUser?'inline-block':'none';
+ $('signIn').style.display=activeUser?'none':'inline-block';
+ $('signUp').style.display=activeUser?'none':'inline-block';
+ $('authStatus').textContent=activeUser?('ログイン中：'+activeUser.email):'ログインしてください。';
+ $('setupNotice').style.display=supabaseClient?'none':'block';
+}
+function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+const $=x=>document.getElementById(x), sum=a=>a.reduce((s,x)=>s+Number(x.credits||0),0), fmt=n=>Number(n.toFixed(2)).toString();
+function render(){
+ const earned=data.subjects.filter(x=>x.status==='取得済'), taking=data.subjects.filter(x=>x.status==='履修中');
+ const e=sum(earned),t=sum(taking),r=Number(data.required)||0,p=r?Math.min(100,e/r*100):0,cy=String(data.currentYear);
+ $('req').textContent=fmt(r);$('earned').textContent=fmt(e);$('taking').textContent=fmt(t);$('remaining').textContent=fmt(Math.max(0,r-e));
+ $('overallPct').textContent=fmt(p)+'%';$('overallBar').style.width=p+'%';$('overallText').textContent=`取得済み ${fmt(e)} / ${fmt(r)} 単位`;
+ const goal=Number(data.goals[cy]||0),ye=sum(earned.filter(x=>String(x.year)===cy)),yp=goal?Math.min(100,ye/goal*100):0;
+ $('yearLabel').textContent=cy+'年度';$('goal').textContent=fmt(goal);$('yearEarned').textContent=fmt(ye);$('yearBar').style.width=yp+'%';$('yearText').textContent=goal?`目標まであと ${fmt(Math.max(0,goal-ye))} 単位（${fmt(yp)}%）`:'年度目標を設定してください';
+ const cats=['必修','選択必修','選択','その他'];$('categorySummary').innerHTML=cats.map(c=>`<div class="row" style="padding:6px 0"><span>${c}</span><b>${fmt(sum(earned.filter(x=>x.category===c)))} 単位</b></div>`).join('');
+ $('subjectCount').textContent=data.subjects.length+'科目';
+ $('noSubjects').classList.toggle('hidden',data.subjects.length>0);
+ $('subjectRows').innerHTML=data.subjects.map(s=>`<tr><td>${esc(s.name)}</td><td>${fmt(Number(s.credits))}</td><td>${esc(s.category)}</td><td><span class="pill ${s.status==='取得済'?'done':s.status==='履修中'?'taking':''}">${s.status}</span></td><td>${s.year||'—'}</td><td><button class="secondary" onclick="edit('${s.id}')">編集</button> <button class="danger" onclick="del('${s.id}')">削除</button></td></tr>`).join('');
+ $('yearList').innerHTML=Object.keys(data.goals).sort((a,b)=>b-a).map(y=>{let actual=sum(earned.filter(s=>String(s.year)===y));return `<div class="yearrow"><b>${y}年度</b><span>目標 ${fmt(data.goals[y])}</span><span>実績 ${fmt(actual)}</span><button class="danger" onclick="removeGoal('${y}')">削除</button></div>`}).join('')||'<div class="empty">年度目標はまだありません。</div>';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('subjectForm').addEventListener('submit',e=>{e.preventDefault();let editId=$('editId').value, obj={id:editId||id(),name:$('name').value.trim(),credits:Number($('credits').value),category:$('category').value,status:$('status').value,year:$('year').value?Number($('year').value):null};if(!obj.name||obj.credits<=0)return;let i=data.subjects.findIndex(x=>x.id===editId);if(i>=0)data.subjects[i]=obj;else data.subjects.push(obj);clearForm();save()});
+function clearForm(){$('subjectForm').reset();$('editId').value='';$('formTitle').textContent='科目を登録';$('saveBtn').textContent='科目を追加'}
+$('cancelEdit').onclick=clearForm;
+window.edit=function(x){let s=data.subjects.find(a=>a.id===x);if(!s)return;$('editId').value=s.id;$('name').value=s.name;$('credits').value=s.credits;$('category').value=s.category;$('status').value=s.status;$('year').value=s.year||'';$('formTitle').textContent='科目を編集';$('saveBtn').textContent='変更を保存';window.scrollTo({top:0,behavior:'smooth'})};
+window.del=function(x){if(confirm('この科目を削除しますか？')){data.subjects=data.subjects.filter(s=>s.id!==x);save()}};
+$('addGoal').onclick=()=>{let y=$('goalYear').value,c=Number($('goalCredits').value);if(!y||c<0||$('goalCredits').value==='')return alert('年度と目標単位数を入力してください。');data.goals[y]=c;save();$('goalCredits').value=''};
+window.removeGoal=y=>{delete data.goals[y];save()};
+$('saveSettings').onclick=()=>{data.required=Number($('requiredCredits').value)||0;data.currentYear=Number($('currentYear').value)||current;save();alert('設定を保存しました。')};
+$('export').onclick=()=>{let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='卒単Checker_backup.json';a.click();URL.revokeObjectURL(a.href)};
+$('import').onchange=async e=>{try{let f=e.target.files[0];if(!f)return;let x=JSON.parse(await f.text());if(!Array.isArray(x.subjects)||typeof x.goals!=='object')throw Error();data={...blank(),...x};save();alert('バックアップを読み込みました。')}catch(err){alert('読み込めないファイルです。')}e.target.value=''};
+$('reset').onclick=()=>{if(confirm('全データを削除します。バックアップはありますか？')&&confirm('本当に初期化しますか？')){data=blank();save()}};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));['home','subjects','years','settings'].forEach(x=>$(x).classList.toggle('hidden',x!==b.dataset.tab));if(b.dataset.tab==='settings'){$('requiredCredits').value=data.required;$('currentYear').value=data.currentYear}if(b.dataset.tab==='years')$('goalYear').value=data.currentYear});
+$('goalYear').value=current;
+async function initCloud(){
+ try{
+  const cfg=window.SOTSUTAN_CONFIG||{};
+  if(!cfg.supabaseUrl||!cfg.supabaseAnonKey){setAuthUI();return}
+  supabaseClient=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+  const {data:sessionData}=await supabaseClient.auth.getSession();
+  activeUser=sessionData.session?.user||null;
+  setAuthUI();
+  if(activeUser) await loadCloud(); else render();
+  supabaseClient.auth.onAuthStateChange(async (_event,session)=>{
+    activeUser=session?.user||null;setAuthUI();
+    if(activeUser) await loadCloud(); else {data=blank();render()}
+  });
+ }catch(e){$('authStatus').textContent='接続設定を確認してください：'+e.message}
+}
+$('signIn').onclick=async()=>{
+ const email=$('authEmail').value.trim(),password=$('authPassword').value;
+ const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+ if(error) alert('ログインできませんでした：'+error.message);
+};
+$('signUp').onclick=async()=>{
+ const email=$('authEmail').value.trim(),password=$('authPassword').value;
+ if(password.length<8){alert('パスワードは8文字以上にしてください。');return}
+ const {error}=await supabaseClient.auth.signUp({email,password});
+ if(error) alert('登録できませんでした：'+error.message);
+ else alert('確認メールが届いた場合は、メール内のリンクを開いてください。');
+};
+$('signOut').onclick=async()=>{await supabaseClient.auth.signOut()};
+initCloud();
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+</script></body></html>
